@@ -1,6 +1,6 @@
 import { View } from 'react-native';
-import TelaCadastro from './components/TelaCadastro';
-import TelaLogin from './components/TelaLogin';
+import TelaCadastro from './src/components/TelaCadastro';
+import TelaLogin from './src/components/TelaLogin';
 
 export default function App() {
   return (
