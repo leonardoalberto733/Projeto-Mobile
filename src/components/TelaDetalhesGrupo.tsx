@@ -11,9 +11,11 @@ import {
 import { useState } from 'react';
 
 import RNPickerSelect from 'react-native-picker-select';
+import ModalAdicionarParticipante from './ModalAdicionarParticipante';
 
 function TelaDetalhesGrupo() {
   const [modalVisivel, setModalVisivel] = useState(false);
+  const [modalParticipanteVisivel, setModalParticipanteVisivel] = useState(false);
 
   const participantes = [
     'Lucas',
@@ -66,8 +68,8 @@ function TelaDetalhesGrupo() {
       </ScrollView>
 
       <View style={styles.botoesContainer}>
-        <TouchableOpacity style={styles.botaoSecundario}>
-          <Text style={styles.textoBotaoSecundario}>
+        <TouchableOpacity style={styles.botaoSecundario} onPress={() => setModalParticipanteVisivel(true)}>
+            <Text style={styles.textoBotaoSecundario}>
             + Add Participante
           </Text>
         </TouchableOpacity>
@@ -190,6 +192,10 @@ function TelaDetalhesGrupo() {
           </View>
         </View>
       </Modal>
+      <ModalAdicionarParticipante
+        visible={modalParticipanteVisivel}
+        onClose={() => setModalParticipanteVisivel(false)}
+      />
     </View>
   );
 }

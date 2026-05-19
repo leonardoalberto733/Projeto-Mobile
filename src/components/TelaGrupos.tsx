@@ -5,8 +5,13 @@ import {
   StyleSheet,
   ScrollView,
 } from 'react-native';
+import { useState } from 'react';
+
+import ModalNovoGrupo from './ModalNovoGrupo';
 
 function TelaGrupos() {
+  const [modalNovoGrupoVisivel, setModalNovoGrupoVisivel] = useState(false);
+
   const grupos = [
     'Restaurante Bagual',
     'Viagem Paraná',
@@ -20,7 +25,7 @@ function TelaGrupos() {
     <View style={styles.container}>
       <Text style={styles.titulo}>Seus Grupos</Text>
 
-      <TouchableOpacity style={styles.botao}>
+      <TouchableOpacity style={styles.botao} onPress={() => setModalNovoGrupoVisivel(true)}>
         <Text style={styles.textoBotao}>+ Novo Grupo</Text>
       </TouchableOpacity>
 
@@ -34,6 +39,10 @@ function TelaGrupos() {
           </TouchableOpacity>
         ))}
       </ScrollView>
+      <ModalNovoGrupo
+        visible={modalNovoGrupoVisivel}
+        onClose={() => setModalNovoGrupoVisivel(false)}
+      />
     </View>
   );
 }
