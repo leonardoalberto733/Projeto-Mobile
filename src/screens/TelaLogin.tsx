@@ -1,52 +1,85 @@
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import {
+  View, Text, TextInput, TouchableOpacity, StyleSheet,
+  ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView,
+} from 'react-native';
+import { useState } from 'react';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { supabase } from '../lib/supabase';
+import { AuthStackParamList } from '../navigation/AppNavigator';
 
-function TelaLogin() {
+type Nav = NativeStackNavigationProp<AuthStackParamList, 'Login'>;
+
+export default function TelaLogin() {
+  const navigation = useNavigation<Nav>();
+  const [email, setEmail]   = useState('');
+  const [senha, setSenha]   = useState('');
+  const [loading, setLoading] = useState(false);
+
+  async function handleLogin() {
+    if (!email.trim() || !senha.trim()) {
+      Alert.alert('Atenção', 'Preencha e-mail e senha.'); return;
+    }
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password: senha,
+      });
+      if (error) throw error;
+    } catch (err: any) {
+      Alert.alert('Erro ao entrar', err.message || 'Verifique suas credenciais.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.titulo}>Login</Text>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+        <Text style={styles.titulo}>Bem-vindo 👋</Text>
+        <Text style={styles.subtitulo}>Faça login para continuar</Text>
 
-      <TextInput
-        placeholder="E-mail"
-        placeholderTextColor="#999"
-        style={styles.input}
-      />
+        <TextInput placeholder="E-mail" placeholderTextColor="#999" style={styles.input}
+          value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
+        <TextInput placeholder="Senha" placeholderTextColor="#999" style={styles.input}
+          value={senha} onChangeText={setSenha} secureTextEntry />
 
-      <TextInput
-        placeholder="Senha"
-        placeholderTextColor="#999"
-        secureTextEntry
-        style={styles.input}
-      />
+        <TouchableOpacity style={[styles.botao, loading && { opacity: 0.7 }]}
+          onPress={handleLogin} disabled={loading}>
+          {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.textoBotao}>Entrar</Text>}
+        </TouchableOpacity>
 
-      <TouchableOpacity style={styles.botao}>
-        <Text style={styles.textoBotao}>Entrar</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity>
-        <Text style={styles.link}>
-          Não possui conta? Cadastre-se
-        </Text>
-      </TouchableOpacity>
-    </View>
+        <TouchableOpacity onPress={() => navigation.navigate('Cadastro')}>
+          <Text style={styles.link}>Não possui conta? Cadastre-se</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
-export default TelaLogin;
-
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    flexGrow: 1,
     backgroundColor: '#F5F5F5',
     justifyContent: 'center',
     paddingHorizontal: 30,
+    paddingVertical: 40,
   },
 
   titulo: {
     fontSize: 32,
     fontWeight: 'bold',
     color: '#222',
-    marginBottom: 40,
+    marginBottom: 8,
     textAlign: 'center',
+  },
+
+  subtitulo: {
+    fontSize: 16,
+    color: '#777',
+    textAlign: 'center',
+    marginBottom: 40,
   },
 
   input: {
@@ -55,10 +88,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF',
     borderRadius: 12,
     paddingHorizontal: 15,
-    marginBottom: 20,
+    marginBottom: 16,
     borderWidth: 1,
     borderColor: '#DDD',
     fontSize: 16,
+    color: '#222',
   },
 
   botao: {
@@ -68,7 +102,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 10,
+    marginTop: 8,
   },
 
   textoBotao: {

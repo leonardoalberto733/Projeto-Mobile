@@ -1,71 +1,111 @@
 import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
+  View, Text, TextInput, TouchableOpacity, StyleSheet,
+  ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView,
 } from 'react-native';
+import { useState } from 'react';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { supabase } from '../lib/supabase';
+import { AuthStackParamList } from '../navigation/AppNavigator';
 
-const TelaCadastro = () => {
+type Nav = NativeStackNavigationProp<AuthStackParamList, 'Cadastro'>;
+
+export default function TelaCadastro() {
+  const navigation = useNavigation<Nav>();
+  const [nome, setNome]                   = useState('');
+  const [email, setEmail]                 = useState('');
+  const [senha, setSenha]                 = useState('');
+  const [confirmar, setConfirmar]         = useState('');
+  const [loading, setLoading]             = useState(false);
+
+  async function handleCadastro() {
+    if (!nome.trim() || !email.trim() || !senha || !confirmar) {
+      Alert.alert('Atenção', 'Preencha todos os campos.'); return;
+    }
+    if (senha !== confirmar) {
+      Alert.alert('Atenção', 'As senhas não coincidem.'); return;
+    }
+    if (senha.length < 6) {
+      Alert.alert('Atenção', 'A senha deve ter pelo menos 6 caracteres.'); return;
+    }
+
+    setLoading(true);
+    try {
+      const { data, error: authErr } = await supabase.auth.signUp({
+        email: email.trim().toLowerCase(),
+        password: senha,
+        options: { data: { name: nome.trim() } },
+      });
+      if (authErr) throw authErr;
+      if (!data.user) throw new Error('Usuário não criado.');
+
+      const { error: profErr } = await supabase.from('users').insert([{
+        id:    data.user.id,
+        name:  nome.trim(),
+        email: email.trim().toLowerCase(),
+      }]);
+
+      if (profErr) {
+        console.warn('Aviso ao salvar perfil:', profErr.message);
+      }
+    } catch (err: any) {
+      Alert.alert('Erro ao cadastrar', err.message || 'Tente novamente.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.titulo}>Cadastro</Text>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+        <Text style={styles.titulo}>Criar conta</Text>
+        <Text style={styles.subtitulo}>É rápido e gratuito</Text>
 
-      <TextInput
-        placeholder="Nome"
-        placeholderTextColor="#999"
-        style={styles.input}
-      />
+        <TextInput placeholder="Nome completo" placeholderTextColor="#999"
+          style={styles.input} value={nome} onChangeText={setNome} autoCapitalize="words" />
+        <TextInput placeholder="E-mail" placeholderTextColor="#999"
+          style={styles.input} value={email} onChangeText={setEmail}
+          keyboardType="email-address" autoCapitalize="none" />
+        <TextInput placeholder="Senha (mín. 6 caracteres)" placeholderTextColor="#999"
+          style={styles.input} value={senha} onChangeText={setSenha} secureTextEntry />
+        <TextInput placeholder="Confirmar senha" placeholderTextColor="#999"
+          style={styles.input} value={confirmar} onChangeText={setConfirmar} secureTextEntry />
 
-      <TextInput
-        placeholder="E-mail"
-        placeholderTextColor="#999"
-        style={styles.input}
-      />
+        <TouchableOpacity style={[styles.botao, loading && { opacity: 0.7 }]}
+          onPress={handleCadastro} disabled={loading}>
+          {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.textoBotao}>Cadastrar</Text>}
+        </TouchableOpacity>
 
-      <TextInput
-        placeholder="Senha"
-        placeholderTextColor="#999"
-        secureTextEntry
-        style={styles.input}
-      />
-
-      <TextInput
-        placeholder="Confirmar senha"
-        placeholderTextColor="#999"
-        secureTextEntry
-        style={styles.input}
-      />
-
-      <TouchableOpacity style={styles.botao}>
-        <Text style={styles.textoBotao}>Cadastrar</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity>
-        <Text style={styles.link}>
-          Já possui conta? Fazer login
-        </Text>
-      </TouchableOpacity>
-    </View>
+        <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+          <Text style={styles.link}>Já possui conta? Fazer login</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
-};
-
-export default TelaCadastro;
+}
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    flexGrow: 1,
     backgroundColor: '#F5F5F5',
     justifyContent: 'center',
     paddingHorizontal: 30,
+    paddingVertical: 40,
   },
 
   titulo: {
     fontSize: 32,
     fontWeight: 'bold',
     color: '#222',
-    marginBottom: 40,
+    marginBottom: 8,
     textAlign: 'center',
+  },
+
+  subtitulo: {
+    fontSize: 16,
+    color: '#777',
+    textAlign: 'center',
+    marginBottom: 40,
   },
 
   input: {
@@ -74,10 +114,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF',
     borderRadius: 12,
     paddingHorizontal: 15,
-    marginBottom: 20,
+    marginBottom: 16,
     borderWidth: 1,
     borderColor: '#DDD',
     fontSize: 16,
+    color: '#222',
   },
 
   botao: {
@@ -87,7 +128,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 10,
+    marginTop: 8,
   },
 
   textoBotao: {
