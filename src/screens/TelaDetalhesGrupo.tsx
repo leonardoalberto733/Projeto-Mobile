@@ -1,259 +1,361 @@
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  ScrollView,
-  Modal,
-  TextInput,
-} from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, FlatList, RefreshControl, ActivityIndicator, Alert, Share, ScrollView } from 'react-native';
+import { useState, useCallback } from 'react';
+import { useRoute, RouteProp, useFocusEffect, useNavigation } from '@react-navigation/native';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
+import { GruposStackParamList } from '../navigation/AppNavigator';
 
-import { useState } from 'react';
+type RouteT = RouteProp<GruposStackParamList, 'DetalhesGrupo'>;
 
-import RNPickerSelect from 'react-native-picker-select';
-import ModalAdicionarParticipante from './ModalAdicionarParticipante';
+interface Despesa {
+  id: string;
+  description: string;
+  amount: number;
+  paid_by: string;
+  receipt_url: string | null;
+  created_at: string;
+  users: { name: string }[] | null;
+}
 
-function TelaDetalhesGrupo() {
-  const [modalVisivel, setModalVisivel] = useState(false);
-  const [modalParticipanteVisivel, setModalParticipanteVisivel] = useState(false);
+interface Membro {
+  user_id: string;
+  users: { name: string }[] | null;
+}
 
-  const participantes = [
-    'Lucas',
-    'Marina',
-    'João',
-    'Carlos',
-    'Fernanda',
-    'Amanda',
-    'Rafael',
-  ];
+interface Balanco {
+  userId: string;
+  nome: string;
+  totalPago: number;
+  cota: number;
+  saldo: number;
+}
 
-  const despesas = [
-    {
-      valor: '200R$',
-      pagante: 'Lucas',
-      descricao:
-        'Compra de leite, pão, margarina e carne no mercado do Seu Izaías.',
-    },
-    {
-      valor: '85R$',
-      pagante: 'Marina',
-      descricao:
-        'Pagamento da gasolina para a viagem até o litoral.',
-    },
-    {
-      valor: '120R$',
-      pagante: 'João',
-      descricao:
-        'Compra de carvão, refrigerante e gelo para o churrasco.',
-    },
-  ];
+export default function TelaDetalhesGrupo() {
+  const route = useRoute<RouteT>();
+  const navigation = useNavigation();
+  const { groupId, groupName } = route.params;
+  const { atualizarSaldo } = useAuth();
+  const [despesas, setDespesas] = useState<Despesa[]>([]);
+  const [membros, setMembros] = useState<Membro[]>([]);
+  const [balanco, setBalanco] = useState<Balanco[]>([]);
+  const [mostrarBalanco, setMostrarBalanco] = useState(false);
+  const [carregando, setCarregando] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [calculando, setCalculando] = useState(false);
+
+  const carregarDados = useCallback(async () => {
+    try {
+      const [{ data: mData, error: mErr }, { data: dData, error: dErr }] =
+        await Promise.all([
+          supabase
+            .from('group_members')
+            .select('user_id, users(name)')
+            .eq('group_id', groupId),
+
+          supabase
+            .from('expenses')
+            .select(
+              'id, description, amount, paid_by, receipt_url, created_at, users(name)'
+            )
+            .eq('group_id', groupId)
+            .order('created_at', { ascending: false }),
+        ]);
+
+      if (mErr) throw mErr;
+      if (dErr) throw dErr;
+
+      setMembros(mData ?? []);
+      setDespesas(dData ?? []);
+    } catch (err) {
+      console.error('Erro ao carregar grupo:', err);
+    } finally {
+      setCarregando(false);
+      setRefreshing(false);
+    }
+  }, [groupId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      setCarregando(true);
+      setMostrarBalanco(false);
+      carregarDados();
+    }, [carregarDados])
+  );
+
+  function onRefresh() {
+    setRefreshing(true);
+    carregarDados();
+  }
+
+  function calcularBalanco() {
+    if (membros.length === 0 || despesas.length === 0) return;
+
+    setCalculando(true);
+
+    setTimeout(() => {
+      const total = despesas.reduce(
+        (acc, d) => acc + Number(d.amount),
+        0
+      );
+
+      const cota = total / membros.length;
+
+      const resultado: Balanco[] = membros.map((m) => {
+        const pago = despesas
+          .filter((d) => d.paid_by === m.user_id)
+          .reduce((acc, d) => acc + Number(d.amount), 0);
+
+        return {
+          userId: m.user_id,
+          nome: m.users?.[0]?.name ?? 'Participante desconhecido',
+          totalPago: pago,
+          cota,
+          saldo: Math.round((pago - cota) * 100) / 100,
+        };
+      });
+
+      setBalanco(resultado);
+      setMostrarBalanco(true);
+      setCalculando(false);
+      atualizarSaldo();
+    }, 500);
+  }
+
+  async function handleConvidar() {
+    try {
+      await Share.share({
+        message: `Olá! Estou te convidando para o grupo "${groupName}" no app de controle de despesas :). Código do grupo: ${groupId}`,
+        title: `Convite — ${groupName}`,
+      });
+    } catch {
+      Alert.alert(
+        'Erro',
+        'Não foi possível abrir o compartilhamento.'
+      );
+    }
+  }
+
+  if (carregando) {
+    return (
+      <View style={styles.centrado}>
+        <ActivityIndicator size="large" color="#4F46E5" />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
-      <Text style={styles.titulo}>Viagem Paraná</Text>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.btnVoltar}>
+          <Text style={styles.txtVoltar}>‹ Voltar</Text>
+        </TouchableOpacity>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.participantesContainer}
-        contentContainerStyle={styles.participantesContent}
-      >
-        {participantes.map((participante, index) => (
-          <View key={index} style={styles.participante}>
-            <Text style={styles.nomeParticipante}>
-              {participante}
+        <Text style={styles.titulo} numberOfLines={1}>
+          {groupName}
+        </Text>
+
+        <View style={{ width: 70 }} />
+      </View>
+
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsContainer}>
+        {membros.map((m) => (
+          <View key={m.user_id} style={styles.chip}>
+            <Text style={styles.chipTxt}>
+              {m.users?.[0]?.name ?? '?'}
             </Text>
           </View>
         ))}
       </ScrollView>
 
-      <View style={styles.botoesContainer}>
-        <TouchableOpacity style={styles.botaoSecundario} onPress={() => setModalParticipanteVisivel(true)}>
-            <Text style={styles.textoBotaoSecundario}>
-            + Add Participante
+      <View style={styles.acoes}>
+        <TouchableOpacity style={styles.btnSecundario} onPress={() =>
+            Alert.alert(
+              'Ainda em desenvolvimento',
+              'Essa função será implementada em brev!'
+            )
+          }
+        >
+          <Text style={styles.txtSecundario}>
+            + Participante
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.botaoPrincipal}
-          onPress={() => setModalVisivel(true)}
+        <TouchableOpacity style={styles.btnPrimario} onPress={() =>
+            Alert.alert(
+              'Ainda em desenvolvimento',
+              'Essa função será implementada em breve!'
+            )
+          }
         >
-          <Text style={styles.textoBotaoPrincipal}>
+          <Text style={styles.txtPrimario}>
             + Nova Despesa
           </Text>
         </TouchableOpacity>
       </View>
 
-      <ScrollView
-        style={styles.listaDespesas}
-        showsVerticalScrollIndicator={false}
-      >
-        {despesas.map((despesa, index) => (
-          <View key={index} style={styles.cardDespesa}>
-            <View style={styles.infoDespesa}>
-              <Text style={styles.valor}>
-                {despesa.valor} • {despesa.pagante}
-              </Text>
+      <TouchableOpacity style={styles.btnConvidar} onPress={handleConvidar}>
+        <Text style={styles.txtConvidar}>
+          Convidar amigo
+        </Text>
+      </TouchableOpacity>
 
-              <Text style={styles.descricao}>
-                {despesa.descricao}
-              </Text>
-            </View>
-
-            <TouchableOpacity style={styles.botaoImagem}>
-              <Text style={styles.iconeImagem}>🖼️</Text>
-            </TouchableOpacity>
-          </View>
-        ))}
-
-        <TouchableOpacity style={styles.botaoCalcular}>
-          <Text style={styles.textoBotaoCalcular}>
-            Calcular
-          </Text>
-        </TouchableOpacity>
-      </ScrollView>
-
-      <Modal
-        visible={modalVisivel}
-        transparent
-        animationType="fade"
-      >
-        <View style={styles.overlay}>
-          <View style={styles.modal}>
-            <Text style={styles.modalTitulo}>
-              Nova Despesa
+      <FlatList data={despesas} keyExtractor={(item) => item.id} style={{ flex: 1 }} showsVerticalScrollIndicator={false} refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#4F46E5']} tintColor="#4F46E5"/>
+        }
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            <Text style={{ fontSize: 48, marginBottom: 12 }}>
+              Vazio.
             </Text>
 
-            <View style={styles.linha}>
-              <View style={styles.inputPreco}>
-                <Text style={styles.rs}>R$</Text>
-
-                <TextInput
-                  placeholder="0,00"
-                  keyboardType="numeric"
-                  placeholderTextColor="#999"
-                  style={styles.textInput}
-                />
-              </View>
-
-                <View style={styles.selectPagante}>
-                    <RNPickerSelect
-                        placeholder={{
-                        label: 'Quem pagou?',
-                        value: null,
-                        }}
-                        items={participantes.map((participante) => ({
-                        label: participante,
-                        value: participante,
-                        }))}
-                        onValueChange={(value) => console.log(value)}
-                        style={{
-                        inputIOS: styles.inputPicker,
-                        inputAndroid: styles.inputPicker,
-                        placeholder: {
-                            color: '#666',
-                        },
-                        }}
-                    />
-                </View>
-            </View>
-
-            <TextInput
-              placeholder="Descrição"
-              placeholderTextColor="#999"
-              multiline
-              style={styles.inputDescricao}
-            />
-
-            <TouchableOpacity style={styles.botaoRecibo}>
-              <Text style={styles.iconeMais}>＋</Text>
-
-              <Text style={styles.textoRecibo}>
-                Adicionar Recibo
-              </Text>
-            </TouchableOpacity>
-
-            <View style={styles.botoesModal}>
-              <TouchableOpacity
-                style={styles.botaoCancelar}
-                onPress={() => setModalVisivel(false)}
-              >
-                <Text style={styles.textoCancelar}>
-                  Cancelar
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.botaoSalvar}>
-                <Text style={styles.textoSalvar}>
-                  Salvar
-                </Text>
-              </TouchableOpacity>
-            </View>
+            <Text style={styles.emptyTxt}>
+              Nenhuma despesa ainda. Adicione a primeira!
+            </Text>
           </View>
-        </View>
-      </Modal>
-      <ModalAdicionarParticipante
-        visible={modalParticipanteVisivel}
-        onClose={() => setModalParticipanteVisivel(false)}
+        }
+        ListFooterComponent={
+          <TouchableOpacity style={[ styles.btnCalcular, (calculando || despesas.length === 0) && { opacity: 0.5,},]} onPress={calcularBalanco} 
+          disabled={calculando || despesas.length === 0}>
+            {calculando ? (
+              <ActivityIndicator color="#FFF" />
+            ) : (
+              <Text style={styles.txtCalcular}>
+                Calcular balanço
+              </Text>
+            )}
+          </TouchableOpacity>
+        }
+        renderItem={({ item }) => (
+          <View style={styles.cardDespesa}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.valorDespesa}>
+                R$ {Number(item.amount).toFixed(2)} ·{' '}
+                {item.users?.[0]?.name ?? '?'}
+              </Text>
+
+              <Text style={styles.descDespesa}>
+                {item.description}
+              </Text>
+
+              <Text style={styles.dataDespesa}>
+                {new Date(item.created_at).toLocaleDateString('pt-BR')}
+              </Text>
+            </View>
+
+            {item.receipt_url ? (
+              <View style={styles.badgeRecibo}>
+                <Text style={{ fontSize: 20 }}>Imagem</Text>
+              </View>
+            ) : null}
+          </View>
+        )}
       />
+
+      {mostrarBalanco && (
+        <View style={styles.painelBalanco}>
+          <Text style={styles.painelTitulo}>
+            Balanço do grupo
+          </Text>
+
+          {balanco.map((item) => (
+            <View
+              key={item.userId}
+              style={styles.linhaBalanco}
+            >
+              <Text style={styles.nomeBalanco}>
+                {item.nome}
+              </Text>
+
+              <Text style={[styles.saldoBalanco,{color: item.saldo >= 0 ? '#16A34A' : '#DC2626',},]}>
+                {item.saldo >= 0 ? '+' : ''}
+                R$ {item.saldo.toFixed(2)}
+              </Text>
+            </View>
+          ))}
+
+          <TouchableOpacity onPress={() => setMostrarBalanco(false)}>
+            <Text style={styles.fecharBalanco}>
+              Fechar
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 }
-
-export default TelaDetalhesGrupo;
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F5F5F5',
-    paddingTop: 40,
+    paddingTop: 50,
     paddingHorizontal: 20,
   },
 
+  centrado: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F5F5F5',
+  },
+
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+
+  btnVoltar: {
+    width: 70,
+  },
+
+  txtVoltar: {
+    fontSize: 16,
+    color: '#4F46E5',
+    fontWeight: '600',
+  },
+
   titulo: {
-    fontSize: 30,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#222',
+    flex: 1,
     textAlign: 'center',
-    marginBottom: 25,
   },
 
-  participantesContainer: {
-    maxHeight: 55,
-    marginBottom: 20,
+  chipsContainer: {
+    paddingRight: 10,
+    marginBottom: 14,
+    gap: 8,
   },
 
-  participantesContent: {
-    paddingRight: 20,
-  },
-
-  participante: {
+  chip: {
     backgroundColor: '#FFF',
     borderWidth: 1,
     borderColor: '#DDD',
     borderRadius: 30,
-    paddingHorizontal: 18,
+    paddingHorizontal: 14,
+    height: 38,
     justifyContent: 'center',
-    marginRight: 10,
-    height: 45,
   },
 
-  nomeParticipante: {
-    fontSize: 15,
+  chipTxt: {
+    fontSize: 13,
     fontWeight: '600',
     color: '#333',
   },
 
-  botoesContainer: {
+  acoes: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 25,
+    gap: 10,
+    marginBottom: 10,
   },
 
-  botaoSecundario: {
+  btnSecundario: {
     flex: 1,
-    height: 52,
-    backgroundColor: '#FFFFFF',
+    height: 48,
+    backgroundColor: '#FFF',
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
@@ -261,230 +363,156 @@ const styles = StyleSheet.create({
     borderColor: '#4F46E5',
   },
 
-  textoBotaoSecundario: {
+  txtSecundario: {
     color: '#4F46E5',
     fontWeight: 'bold',
-    fontSize: 15,
+    fontSize: 14,
   },
 
-  botaoPrincipal: {
+  btnPrimario: {
     flex: 1,
-    height: 52,
+    height: 48,
     backgroundColor: '#4F46E5',
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
   },
 
-  textoBotaoPrincipal: {
+  txtPrimario: {
     color: '#FFF',
     fontWeight: 'bold',
-    fontSize: 15,
+    fontSize: 14,
   },
 
-  listaDespesas: {
-    flex: 1,
+  btnConvidar: {
+    height: 44,
+    backgroundColor: '#F0FDF4',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#86EFAC',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+
+  txtConvidar: {
+    color: '#16A34A',
+    fontWeight: '600',
+    fontSize: 14,
   },
 
   cardDespesa: {
-    width: '100%',
     backgroundColor: '#FFF',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 10,
     flexDirection: 'row',
     borderWidth: 1,
     borderColor: '#E5E5E5',
   },
 
-  infoDespesa: {
-    flex: 1,
-    paddingRight: 15,
-  },
-
-  valor: {
-    fontSize: 18,
+  valorDespesa: {
+    fontSize: 15,
     fontWeight: 'bold',
     color: '#222',
-    marginBottom: 10,
+    marginBottom: 4,
   },
 
-  descricao: {
-    fontSize: 15,
+  descDespesa: {
+    fontSize: 14,
     color: '#555',
-    lineHeight: 22,
   },
 
-  botaoImagem: {
-    width: 65,
+  dataDespesa: {
+    fontSize: 12,
+    color: '#AAA',
+    marginTop: 4,
+  },
+
+  badgeRecibo: {
+    width: 44,
     justifyContent: 'center',
     alignItems: 'center',
     borderLeftWidth: 1,
     borderLeftColor: '#EEE',
-    paddingLeft: 10,
   },
 
-  iconeImagem: {
-    fontSize: 28,
-  },
-
-  botaoCalcular: {
-    width: '100%',
-    height: 58,
+  btnCalcular: {
+    height: 54,
     backgroundColor: '#16A34A',
     borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 10,
-    marginBottom: 40,
+    marginVertical: 14,
   },
 
-  textoBotaoCalcular: {
+  txtCalcular: {
     color: '#FFF',
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
   },
 
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    justifyContent: 'center',
-    paddingHorizontal: 20,
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 40,
   },
 
-  modal: {
+  emptyTxt: {
+    fontSize: 15,
+    color: '#999',
+    textAlign: 'center',
+  },
+
+  painelBalanco: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     backgroundColor: '#FFF',
-    borderRadius: 22,
-    padding: 22,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 24,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E5E5',
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
   },
 
-  modalTitulo: {
-    fontSize: 26,
+  painelTitulo: {
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#222',
-    marginBottom: 25,
+    marginBottom: 16,
   },
 
-  linha: {
+  linhaBalanco: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 18,
-  },
-
-  inputPreco: {
-    flex: 1,
-    height: 55,
-    backgroundColor: '#F5F5F5',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#DDD',
-    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 15,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
   },
 
-  rs: {
+  nomeBalanco: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+  },
+
+  saldoBalanco: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#444',
-    marginRight: 8,
   },
 
-  textInput: {
-    flex: 1,
-    fontSize: 16,
-    color: '#222',
-  },
-
-selectPagante: {
-  flex: 1,
-  height: 55,
-  backgroundColor: '#F5F5F5',
-  borderRadius: 12,
-  borderWidth: 1,
-  borderColor: '#DDD',
-  justifyContent: 'center',
-  paddingHorizontal: 10,
-},
-
-  textoSelect: {
-    color: '#666',
-    fontSize: 15,
-  },
-
-  inputDescricao: {
-    minHeight: 100,
-    backgroundColor: '#F5F5F5',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#DDD',
-    padding: 15,
-    textAlignVertical: 'top',
-    fontSize: 16,
-    marginBottom: 18,
-  },
-
-  botaoRecibo: {
-    height: 58,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#DDD',
-    backgroundColor: '#FAFAFA',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 18,
-    marginBottom: 25,
-  },
-
-  iconeMais: {
-    fontSize: 24,
+  fecharBalanco: {
+    textAlign: 'center',
     color: '#4F46E5',
-    marginRight: 10,
-  },
-
-  textoRecibo: {
-    fontSize: 16,
-    color: '#444',
     fontWeight: '600',
-  },
-
-  botoesModal: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-
-  botaoCancelar: {
-    flex: 1,
-    height: 52,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#DDD',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  textoCancelar: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#555',
-  },
-
-  botaoSalvar: {
-    flex: 1,
-    height: 52,
-    backgroundColor: '#4F46E5',
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  textoSalvar: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#FFF',
-  },
-    inputPicker: {
     fontSize: 15,
-    color: '#222',
-    },
+    marginTop: 16,
+  },
 });
