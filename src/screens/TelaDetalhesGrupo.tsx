@@ -1,6 +1,27 @@
-import { View, Text, TouchableOpacity, StyleSheet, FlatList, RefreshControl, ActivityIndicator, Alert, Share, ScrollView } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  FlatList,
+  RefreshControl,
+  ActivityIndicator,
+  Alert,
+  Share,
+  ScrollView,
+} from 'react-native';
+
 import { useState, useCallback } from 'react';
-import { useRoute, RouteProp, useFocusEffect, useNavigation } from '@react-navigation/native';
+
+import {
+  useRoute,
+  RouteProp,
+  useFocusEffect,
+  useNavigation,
+} from '@react-navigation/native';
+
+import ModalAdicionarParticipante from '../components/ModalAdicionarParticipante';
+import ModalNovaDespesa from '../components/ModalNovaDespesa';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { GruposStackParamList } from '../navigation/AppNavigator';
@@ -8,40 +29,42 @@ import { GruposStackParamList } from '../navigation/AppNavigator';
 type RouteT = RouteProp<GruposStackParamList, 'DetalhesGrupo'>;
 
 interface Despesa {
-  id: string;
-  description: string;
-  amount: number;
-  paid_by: string;
-  receipt_url: string | null;
-  created_at: string;
-  users: { name: string }[] | null;
+  id: string; description: string; amount: number;
+  paid_by: string; receipt_url: string | null; created_at: string;
+  users: { name: string } | null;
 }
 
-interface Membro {
-  user_id: string;
-  users: { name: string }[] | null;
-}
+interface Membro { 
+  user_id: string; 
+  users: { 
+    name: string } | null; }
 
-interface Balanco {
-  userId: string;
-  nome: string;
-  totalPago: number;
-  cota: number;
-  saldo: number;
+interface Balanco { 
+  userId: string; 
+  nome: string; 
+  totalPago: number; 
+  cota: number; 
+  saldo: number; 
 }
 
 export default function TelaDetalhesGrupo() {
   const route = useRoute<RouteT>();
   const navigation = useNavigation();
+
   const { groupId, groupName } = route.params;
   const { atualizarSaldo } = useAuth();
+
   const [despesas, setDespesas] = useState<Despesa[]>([]);
   const [membros, setMembros] = useState<Membro[]>([]);
   const [balanco, setBalanco] = useState<Balanco[]>([]);
+
   const [mostrarBalanco, setMostrarBalanco] = useState(false);
   const [carregando, setCarregando] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [calculando, setCalculando] = useState(false);
+
+  const [modalDespesa, setModalDespesa] = useState(false);
+  const [modalParticipante, setModalParticipante] = useState(false);
 
   const carregarDados = useCallback(async () => {
     try {
@@ -49,23 +72,40 @@ export default function TelaDetalhesGrupo() {
         await Promise.all([
           supabase
             .from('group_members')
-            .select('user_id, users(name)')
+            .select(`
+              user_id,
+              users (
+                name
+              )
+            `)
             .eq('group_id', groupId),
 
           supabase
             .from('expenses')
-            .select(
-              'id, description, amount, paid_by, receipt_url, created_at, users(name)'
-            )
+            .select(`
+              id,
+              description,
+              amount,
+              paid_by,
+              receipt_url,
+              created_at,
+              users (
+                name
+              )
+            `)
             .eq('group_id', groupId)
             .order('created_at', { ascending: false }),
         ]);
 
-      if (mErr) throw mErr;
-      if (dErr) throw dErr;
+      if (mErr) {
+        throw mErr;
+      }
 
-      setMembros(mData ?? []);
-      setDespesas(dData ?? []);
+      if (dErr) {
+        throw dErr;
+      }
+    setMembros((mData ?? []) as unknown as Membro[]);
+    setDespesas((dData ?? []) as unknown as Despesa[]);
     } catch (err) {
       console.error('Erro ao carregar grupo:', err);
     } finally {
@@ -78,8 +118,9 @@ export default function TelaDetalhesGrupo() {
     useCallback(() => {
       setCarregando(true);
       setMostrarBalanco(false);
+
       carregarDados();
-    }, [carregarDados])
+    }, [carregarDados]),
   );
 
   function onRefresh() {
@@ -88,14 +129,16 @@ export default function TelaDetalhesGrupo() {
   }
 
   function calcularBalanco() {
-    if (membros.length === 0 || despesas.length === 0) return;
+    if (membros.length === 0 || despesas.length === 0) {
+      return;
+    }
 
     setCalculando(true);
 
     setTimeout(() => {
       const total = despesas.reduce(
         (acc, d) => acc + Number(d.amount),
-        0
+        0,
       );
 
       const cota = total / membros.length;
@@ -107,7 +150,7 @@ export default function TelaDetalhesGrupo() {
 
         return {
           userId: m.user_id,
-          nome: m.users?.[0]?.name ?? 'Participante desconhecido',
+          nome: m.users?.name ?? 'Desconhecido',
           totalPago: pago,
           cota,
           saldo: Math.round((pago - cota) * 100) / 100,
@@ -117,6 +160,7 @@ export default function TelaDetalhesGrupo() {
       setBalanco(resultado);
       setMostrarBalanco(true);
       setCalculando(false);
+
       atualizarSaldo();
     }, 500);
   }
@@ -124,13 +168,13 @@ export default function TelaDetalhesGrupo() {
   async function handleConvidar() {
     try {
       await Share.share({
-        message: `Olá! Estou te convidando para o grupo "${groupName}" no app de controle de despesas :). Código do grupo: ${groupId}`,
+        message: `Ei! Te convido para o grupo "${groupName}" no app de despesas. Código: ${groupId}`,
         title: `Convite — ${groupName}`,
       });
     } catch {
       Alert.alert(
         'Erro',
-        'Não foi possível abrir o compartilhamento.'
+        'Não foi possível abrir o compartilhamento.',
       );
     }
   }
@@ -138,54 +182,71 @@ export default function TelaDetalhesGrupo() {
   if (carregando) {
     return (
       <View style={styles.centrado}>
-        <ActivityIndicator size="large" color="#4F46E5" />
+        <ActivityIndicator
+          size="large"
+          color="#4F46E5"
+        />
       </View>
     );
   }
 
+  const membrosParaModal = membros.map((m) => ({
+    user_id: m.user_id,
+    name: m.users?.name ?? '?',
+  }));
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.btnVoltar}>
-          <Text style={styles.txtVoltar}>‹ Voltar</Text>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.btnVoltar}
+        >
+          <Text style={styles.txtVoltar}>
+            ‹ Voltar
+          </Text>
         </TouchableOpacity>
 
-        <Text style={styles.titulo} numberOfLines={1}>
+        <Text
+          style={styles.titulo}
+          numberOfLines={1}
+        >
           {groupName}
         </Text>
 
-        <View style={{ width: 70 }} />
+        <View style={styles.espacoHeader} />
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsContainer}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.chipsContainer}
+      >
         {membros.map((m) => (
-          <View key={m.user_id} style={styles.chip}>
+          <View
+            key={m.user_id}
+            style={styles.chip}
+          >
             <Text style={styles.chipTxt}>
-              {m.users?.[0]?.name ?? '?'}
+              {m.users?.name ?? '?'}
             </Text>
           </View>
         ))}
       </ScrollView>
 
       <View style={styles.acoes}>
-        <TouchableOpacity style={styles.btnSecundario} onPress={() =>
-            Alert.alert(
-              'Ainda em desenvolvimento',
-              'Essa função será implementada em brev!'
-            )
-          }
+        <TouchableOpacity
+          style={styles.btnSecundario}
+          onPress={() => setModalParticipante(true)}
         >
           <Text style={styles.txtSecundario}>
             + Participante
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.btnPrimario} onPress={() =>
-            Alert.alert(
-              'Ainda em desenvolvimento',
-              'Essa função será implementada em breve!'
-            )
-          }
+        <TouchableOpacity
+          style={styles.btnPrimario}
+          onPress={() => setModalDespesa(true)}
         >
           <Text style={styles.txtPrimario}>
             + Nova Despesa
@@ -193,19 +254,32 @@ export default function TelaDetalhesGrupo() {
         </TouchableOpacity>
       </View>
 
-      <TouchableOpacity style={styles.btnConvidar} onPress={handleConvidar}>
+      <TouchableOpacity
+        style={styles.btnConvidar}
+        onPress={handleConvidar}
+      >
         <Text style={styles.txtConvidar}>
-          Convidar amigo
+          🔗 Convidar Amigo
         </Text>
       </TouchableOpacity>
 
-      <FlatList data={despesas} keyExtractor={(item) => item.id} style={{ flex: 1 }} showsVerticalScrollIndicator={false} refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#4F46E5']} tintColor="#4F46E5"/>
+      <FlatList
+        data={despesas}
+        keyExtractor={(item) => item.id}
+        style={styles.lista}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#4F46E5']}
+            tintColor="#4F46E5"
+          />
         }
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <Text style={{ fontSize: 48, marginBottom: 12 }}>
-              Vazio.
+            <Text style={styles.emojiEmpty}>
+              🧾
             </Text>
 
             <Text style={styles.emptyTxt}>
@@ -214,23 +288,33 @@ export default function TelaDetalhesGrupo() {
           </View>
         }
         ListFooterComponent={
-          <TouchableOpacity style={[ styles.btnCalcular, (calculando || despesas.length === 0) && { opacity: 0.5,},]} onPress={calcularBalanco} 
-          disabled={calculando || despesas.length === 0}>
+          <TouchableOpacity
+            style={[
+              styles.btnCalcular,
+              (calculando || despesas.length === 0) && {
+                opacity: 0.5,
+              },
+            ]}
+            onPress={calcularBalanco}
+            disabled={
+              calculando || despesas.length === 0
+            }
+          >
             {calculando ? (
               <ActivityIndicator color="#FFF" />
             ) : (
               <Text style={styles.txtCalcular}>
-                Calcular balanço
+                ⚖️ Calcular Balanço
               </Text>
             )}
           </TouchableOpacity>
         }
         renderItem={({ item }) => (
           <View style={styles.cardDespesa}>
-            <View style={{ flex: 1 }}>
+            <View style={styles.cardConteudo}>
               <Text style={styles.valorDespesa}>
                 R$ {Number(item.amount).toFixed(2)} ·{' '}
-                {item.users?.[0]?.name ?? '?'}
+                {item.users?.name ?? '?'}
               </Text>
 
               <Text style={styles.descDespesa}>
@@ -238,13 +322,17 @@ export default function TelaDetalhesGrupo() {
               </Text>
 
               <Text style={styles.dataDespesa}>
-                {new Date(item.created_at).toLocaleDateString('pt-BR')}
+                {new Date(
+                  item.created_at,
+                ).toLocaleDateString('pt-BR')}
               </Text>
             </View>
 
             {item.receipt_url ? (
               <View style={styles.badgeRecibo}>
-                <Text style={{ fontSize: 20 }}>Imagem</Text>
+                <Text style={styles.iconeRecibo}>
+                  🖼️
+                </Text>
               </View>
             ) : null}
           </View>
@@ -254,7 +342,7 @@ export default function TelaDetalhesGrupo() {
       {mostrarBalanco && (
         <View style={styles.painelBalanco}>
           <Text style={styles.painelTitulo}>
-            Balanço do grupo
+            Balanço do Grupo
           </Text>
 
           {balanco.map((item) => (
@@ -266,20 +354,57 @@ export default function TelaDetalhesGrupo() {
                 {item.nome}
               </Text>
 
-              <Text style={[styles.saldoBalanco,{color: item.saldo >= 0 ? '#16A34A' : '#DC2626',},]}>
+              <Text
+                style={[
+                  styles.saldoBalanco,
+                  {
+                    color:
+                      item.saldo >= 0
+                        ? '#16A34A'
+                        : '#DC2626',
+                  },
+                ]}
+              >
                 {item.saldo >= 0 ? '+' : ''}
                 R$ {item.saldo.toFixed(2)}
               </Text>
             </View>
           ))}
 
-          <TouchableOpacity onPress={() => setMostrarBalanco(false)}>
+          <TouchableOpacity
+            onPress={() =>
+              setMostrarBalanco(false)
+            }
+          >
             <Text style={styles.fecharBalanco}>
               Fechar
             </Text>
           </TouchableOpacity>
         </View>
       )}
+
+      <ModalNovaDespesa
+        visible={modalDespesa}
+        groupId={groupId}
+        membros={membrosParaModal}
+        onClose={() => setModalDespesa(false)}
+        onSuccess={() => {
+          setModalDespesa(false);
+          carregarDados();
+        }}
+      />
+
+      <ModalAdicionarParticipante
+        visible={modalParticipante}
+        groupId={groupId}
+        onClose={() =>
+          setModalParticipante(false)
+        }
+        onSuccess={() => {
+          setModalParticipante(false);
+          carregarDados();
+        }}
+      />
     </View>
   );
 }
@@ -317,11 +442,15 @@ const styles = StyleSheet.create({
   },
 
   titulo: {
+    flex: 1,
+    textAlign: 'center',
     fontSize: 20,
     fontWeight: 'bold',
     color: '#222',
-    flex: 1,
-    textAlign: 'center',
+  },
+
+  espacoHeader: {
+    width: 70,
   },
 
   chipsContainer: {
@@ -331,12 +460,12 @@ const styles = StyleSheet.create({
   },
 
   chip: {
+    height: 38,
+    paddingHorizontal: 14,
+    borderRadius: 30,
     backgroundColor: '#FFF',
     borderWidth: 1,
     borderColor: '#DDD',
-    borderRadius: 30,
-    paddingHorizontal: 14,
-    height: 38,
     justifyContent: 'center',
   },
 
@@ -355,60 +484,68 @@ const styles = StyleSheet.create({
   btnSecundario: {
     flex: 1,
     height: 48,
-    backgroundColor: '#FFF',
     borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
     borderWidth: 1,
     borderColor: '#4F46E5',
+    backgroundColor: '#FFF',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 
   txtSecundario: {
-    color: '#4F46E5',
-    fontWeight: 'bold',
     fontSize: 14,
+    fontWeight: 'bold',
+    color: '#4F46E5',
   },
 
   btnPrimario: {
     flex: 1,
     height: 48,
-    backgroundColor: '#4F46E5',
     borderRadius: 12,
+    backgroundColor: '#4F46E5',
     justifyContent: 'center',
     alignItems: 'center',
   },
 
   txtPrimario: {
-    color: '#FFF',
-    fontWeight: 'bold',
     fontSize: 14,
+    fontWeight: 'bold',
+    color: '#FFF',
   },
 
   btnConvidar: {
     height: 44,
-    backgroundColor: '#F0FDF4',
+    marginBottom: 14,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#86EFAC',
+    backgroundColor: '#F0FDF4',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 14,
   },
 
   txtConvidar: {
-    color: '#16A34A',
-    fontWeight: '600',
     fontSize: 14,
+    fontWeight: '600',
+    color: '#16A34A',
+  },
+
+  lista: {
+    flex: 1,
   },
 
   cardDespesa: {
+    flexDirection: 'row',
     backgroundColor: '#FFF',
     borderRadius: 14,
-    padding: 14,
-    marginBottom: 10,
-    flexDirection: 'row',
     borderWidth: 1,
     borderColor: '#E5E5E5',
+    padding: 14,
+    marginBottom: 10,
+  },
+
+  cardConteudo: {
+    flex: 1,
   },
 
   valorDespesa: {
@@ -437,24 +574,33 @@ const styles = StyleSheet.create({
     borderLeftColor: '#EEE',
   },
 
+  iconeRecibo: {
+    fontSize: 20,
+  },
+
   btnCalcular: {
     height: 54,
-    backgroundColor: '#16A34A',
+    marginVertical: 14,
     borderRadius: 14,
+    backgroundColor: '#16A34A',
     justifyContent: 'center',
     alignItems: 'center',
-    marginVertical: 14,
   },
 
   txtCalcular: {
-    color: '#FFF',
     fontSize: 16,
     fontWeight: 'bold',
+    color: '#FFF',
   },
 
   emptyState: {
     alignItems: 'center',
     paddingVertical: 40,
+  },
+
+  emojiEmpty: {
+    fontSize: 48,
+    marginBottom: 12,
   },
 
   emptyTxt: {
@@ -468,15 +614,18 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#FFF',
+    padding: 24,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    padding: 24,
     borderTopWidth: 1,
     borderTopColor: '#E5E5E5',
+    backgroundColor: '#FFF',
     elevation: 10,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: -3 },
+    shadowOffset: {
+      width: 0,
+      height: -3,
+    },
     shadowOpacity: 0.1,
     shadowRadius: 8,
   },
@@ -510,9 +659,9 @@ const styles = StyleSheet.create({
 
   fecharBalanco: {
     textAlign: 'center',
-    color: '#4F46E5',
-    fontWeight: '600',
-    fontSize: 15,
     marginTop: 16,
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#4F46E5',
   },
 });
