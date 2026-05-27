@@ -18,7 +18,8 @@ export default function TelaLogin() {
 
   async function handleLogin() {
     if (!email.trim() || !senha.trim()) {
-      Alert.alert('Atenção', 'Preencha e-mail e senha.'); return;
+      Alert.alert('Atenção', 'Preencha e-mail e senha.'); 
+      return;
     }
     setLoading(true);
     try {
@@ -37,10 +38,10 @@ export default function TelaLogin() {
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-        <Text style={styles.titulo}>Bem-vindo 👋</Text>
+        <Text style={styles.titulo}>Bem-vindo</Text>
         <Text style={styles.subtitulo}>Faça login para continuar</Text>
 
-        <TextInput placeholder="E-mail" placeholderTextColor="#999" style={styles.input}
+        <TextInput placeholder="Email" placeholderTextColor="#999" style={styles.input}
           value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
         <TextInput placeholder="Senha" placeholderTextColor="#999" style={styles.input}
           value={senha} onChangeText={setSenha} secureTextEntry />

@@ -17,9 +17,9 @@ interface Grupo { id: string; name: string; created_at: string; }
 export default function TelaGrupos() {
   const navigation = useNavigation<Nav>();
   const { user }   = useAuth();
-  const [grupos, setGrupos]           = useState<Grupo[]>([]);
-  const [carregando, setCarregando]   = useState(true);
-  const [refreshing, setRefreshing]   = useState(false);
+  const [grupos, setGrupos] = useState<Grupo[]>([]);
+  const [carregando, setCarregando] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [modalVisivel, setModalVisivel] = useState(false);
 
   const carregarGrupos = useCallback(async () => {
@@ -58,7 +58,6 @@ export default function TelaGrupos() {
 
       {grupos.length === 0 ? (
         <View style={styles.emptyState}>
-          <Text style={styles.emptyIcon}>🏡</Text>
           <Text style={styles.emptyTitulo}>Nenhum grupo ainda</Text>
           <Text style={styles.emptySubtitulo}>
             Crie um grupo para começar a dividir despesas com amigos
