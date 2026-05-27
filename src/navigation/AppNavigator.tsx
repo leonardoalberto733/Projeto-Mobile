@@ -3,13 +3,13 @@ import { ActivityIndicator, View, Text } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
-import TelaLogin           from '../screens/TelaLogin';
-import TelaCadastro        from '../screens/TelaCadastro';
-import TelaGrupos          from '../screens/TelaGrupos';
-import TelaDetalhesGrupo   from '../screens/TelaDetalhesGrupo';
-import TelaSaldo           from '../screens/TelaSaldo';
-import TelaPerfil          from '../screens/TelaPerfil';
-import { useAuth }         from '../contexts/AuthContext';
+import TelaLogin from '../screens/TelaLogin';
+import TelaCadastro from '../screens/TelaCadastro';
+import TelaGrupos from '../screens/TelaGrupos';
+import TelaDetalhesGrupo from '../screens/TelaDetalhesGrupo';
+import TelaSaldo from '../screens/TelaSaldo';
+import TelaPerfil from '../screens/TelaPerfil';
+import { useAuth } from '../contexts/AuthContext';
 
 export type AuthStackParamList = {
   Login:    undefined;
@@ -27,10 +27,10 @@ export type AppTabsParamList = {
   Perfil:  undefined;
 };
 
-const AuthStack   = createNativeStackNavigator<AuthStackParamList>();
+const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 const GruposStack = createNativeStackNavigator<GruposStackParamList>();
-const AppTabs     = createBottomTabNavigator<AppTabsParamList>();
-const Root        = createNativeStackNavigator();
+const AppTabs = createBottomTabNavigator<AppTabsParamList>();
+const Root = createNativeStackNavigator();
 
 function GruposStackNav() {
   return (
