@@ -20,13 +20,16 @@ export default function TelaCadastro() {
 
   async function handleCadastro() {
     if (!nome.trim() || !email.trim() || !senha || !confirmar) {
-      Alert.alert('Atenção', 'Preencha todos os campos.'); return;
+      Alert.alert('Atenção', 'Preencha todos os campos'); 
+      return;
     }
     if (senha !== confirmar) {
-      Alert.alert('Atenção', 'As senhas não coincidem.'); return;
+      Alert.alert('Atenção', 'As senhas não coincidem'); 
+      return;
     }
     if (senha.length < 6) {
-      Alert.alert('Atenção', 'A senha deve ter pelo menos 6 caracteres.'); return;
+      Alert.alert('Atenção', 'A senha deve ter pelo menos 6 caracteres'); 
+      return;
     }
 
     setLoading(true);
@@ -36,6 +39,7 @@ export default function TelaCadastro() {
         password: senha,
         options: { data: { name: nome.trim() } },
       });
+
       if (authErr) throw authErr;
       if (!data.user) throw new Error('Usuário não criado.');
 
@@ -59,14 +63,14 @@ export default function TelaCadastro() {
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <Text style={styles.titulo}>Criar conta</Text>
-        <Text style={styles.subtitulo}>É rápido e gratuito</Text>
+        <Text style={styles.subtitulo}>É rapidinho e de graça</Text>
 
         <TextInput placeholder="Nome completo" placeholderTextColor="#999"
           style={styles.input} value={nome} onChangeText={setNome} autoCapitalize="words" />
-        <TextInput placeholder="E-mail" placeholderTextColor="#999"
+        <TextInput placeholder="Email" placeholderTextColor="#999"
           style={styles.input} value={email} onChangeText={setEmail}
           keyboardType="email-address" autoCapitalize="none" />
-        <TextInput placeholder="Senha (mín. 6 caracteres)" placeholderTextColor="#999"
+        <TextInput placeholder="Senha (min de 6 caracteres)" placeholderTextColor="#999"
           style={styles.input} value={senha} onChangeText={setSenha} secureTextEntry />
         <TextInput placeholder="Confirmar senha" placeholderTextColor="#999"
           style={styles.input} value={confirmar} onChangeText={setConfirmar} secureTextEntry />
@@ -77,7 +81,7 @@ export default function TelaCadastro() {
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-          <Text style={styles.link}>Já possui conta? Fazer login</Text>
+          <Text style={styles.link}>Já tem conta? Faça login</Text>
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
