@@ -1,20 +1,17 @@
-import { SafeAreaView, StyleSheet } from 'react-native';
-import TelaCadastro from './src/screens/TelaCadastro';
-import TelaLogin from './src/screens/TelaLogin';
-import TelaGrupos from './src/screens/TelaGrupos';
-import TelaDetalhesGrupo from './src/screens/TelaDetalhesGrupo';
-import TelaSaldo from './src/screens/TelaSaldo';
+import { NavigationContainer } from '@react-navigation/native';
+import { SafeAreaProvider }    from 'react-native-safe-area-context';
+import { AuthProvider }        from './src/contexts/AuthContext';
+import AppNavigator            from './src/navigation/AppNavigator';
+
 
 export default function App() {
-  return (
-    <SafeAreaView style={styles.container}>
-      <TelaSaldo/>
-    </SafeAreaView>
-  );
+ return (
+   <SafeAreaProvider>
+     <AuthProvider>
+       <NavigationContainer>
+         <AppNavigator />
+       </NavigationContainer>
+     </AuthProvider>
+   </SafeAreaProvider>
+ );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-});

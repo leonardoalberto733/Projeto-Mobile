@@ -63,7 +63,6 @@ export default function TelaCadastro() {
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <Text style={styles.titulo}>Criar conta</Text>
-        <Text style={styles.subtitulo}>É rapidinho e de graça</Text>
 
         <TextInput placeholder="Nome completo" placeholderTextColor="#999"
           style={styles.input} value={nome} onChangeText={setNome} autoCapitalize="words" />
@@ -101,15 +100,8 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: 'bold',
     color: '#222',
-    marginBottom: 8,
+    marginBottom: 15,
     textAlign: 'center',
-  },
-
-  subtitulo: {
-    fontSize: 16,
-    color: '#777',
-    textAlign: 'center',
-    marginBottom: 40,
   },
 
   input: {

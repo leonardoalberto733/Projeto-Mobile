@@ -1,7 +1,8 @@
 import React from 'react';
-import { ActivityIndicator, View, Text } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { MaterialIcons, MaterialCommunityIcons, FontAwesome } from '@expo/vector-icons';
 
 import TelaLogin from '../screens/TelaLogin';
 import TelaCadastro from '../screens/TelaCadastro';
@@ -42,15 +43,9 @@ function GruposStackNav() {
 }
 
 function AppTabsNav() {
-  const ICONS: Record<string, string> = {
-    Grupos: '👥',
-    Extrato: '💰',
-    Perfil: '👤'
-  };
-
   return (
     <AppTabs.Navigator
-      screenOptions={({ route }: { route: { name: keyof AppTabsParamList } }) => ({
+      screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: '#4F46E5',
         tabBarInactiveTintColor: '#999',
@@ -58,25 +53,46 @@ function AppTabsNav() {
           backgroundColor: '#FFF',
           borderTopColor: '#E5E5E5',
           height: 60,
-          paddingBottom: 8
+          paddingBottom: 8,
         },
         tabBarLabelStyle: {
           fontSize: 12,
-          fontWeight: '600'
+          fontWeight: '600',
         },
-
-        tabBarIcon: ({ size }: { size: number }) => (
-          <Text style={{ fontSize: size - 4 }}>
-            {ICONS[route.name]}
-          </Text>
-        ),
-      })}
+      }}
     >
-      <AppTabs.Screen name="Grupos" component={GruposStackNav} options={{ title: 'Meus Grupos' }}/>
+      <AppTabs.Screen
+        name="Grupos"
+        component={GruposStackNav}
+        options={{
+          title: 'Meus grupos',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialIcons name="groups" size={size} color={color} />
+          ),
+        }}
+      />
 
-      <AppTabs.Screen name="Extrato" component={TelaSaldo} options={{ title: 'Extrato' }}/>
+      <AppTabs.Screen
+        name="Extrato"
+        component={TelaSaldo}
+        options={{
+          title: 'Extrato',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="cash-minus" size={size} color={color} />
+          ),
+        }}
+      />
 
-      <AppTabs.Screen name="Perfil" component={TelaPerfil} options={{ title: 'Perfil' }}/>
+      <AppTabs.Screen
+        name="Perfil"
+        component={TelaPerfil}
+        options={{
+          title: 'Perfil',
+          tabBarIcon: ({ color, size }) => (
+            <FontAwesome name="user-circle-o" size={size} color={color} />
+          ),
+        }}
+      />
     </AppTabs.Navigator>
   );
 }

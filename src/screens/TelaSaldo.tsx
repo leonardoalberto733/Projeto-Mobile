@@ -1,21 +1,42 @@
-import { View, Text, StyleSheet, FlatList, RefreshControl, ActivityIndicator,} from 'react-native';
+import { View, Text, StyleSheet, FlatList, RefreshControl, ActivityIndicator, Image } from 'react-native';
 import { useState, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
+import { MaterialCommunityIcons, FontAwesome } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+
+interface DespesaExtrato {
+  description: string;
+  amount: number;
+  paidByMe: boolean;
+  payerName: string;
+  payerAvatar: string | null;
+}
 
 interface ItemExtrato {
   groupId: string;
   groupName: string;
-  totalPago: number; 
-  cota: number; 
+  totalPago: number;
+  cota: number;
   saldo: number;
-  despesas: { description: string; amount: number; paidByMe: boolean }[];
+  despesas: DespesaExtrato[];
+}
+
+function AvatarPagador({ avatarUrl, paidByMe }: { avatarUrl: string | null; paidByMe: boolean }) {
+  if (!paidByMe) return <View style={styles.avatarEspacador} />;
+  if (avatarUrl) {
+    return <Image source={{ uri: avatarUrl }} style={styles.avatarPagador} />;
+  }
+  return (
+    <View style={styles.avatarPagadorPlaceholder}>
+      <FontAwesome name="user-circle-o" size={15} color="#16A34A" />
+    </View>
+  );
 }
 
 export default function TelaSaldo() {
   const { user } = useAuth();
-  const [extrato,   setExtrato] = useState<ItemExtrato[]>([]);
+  const [extrato, setExtrato] = useState<ItemExtrato[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -38,7 +59,10 @@ export default function TelaSaldo() {
 
         const [{ data: membros }, { data: despesas }] = await Promise.all([
           supabase.from('group_members').select('user_id').eq('group_id', group.id),
-          supabase.from('expenses').select('description, amount, paid_by').eq('group_id', group.id),
+          supabase
+            .from('expenses')
+            .select('description, amount, paid_by, users(name, avatar_url)')
+            .eq('group_id', group.id),
         ]);
 
         if (!membros || !despesas) continue;
@@ -54,10 +78,12 @@ export default function TelaSaldo() {
           groupName: group.name,
           totalPago, cota,
           saldo: Math.round((totalPago - cota) * 100) / 100,
-          despesas: despesas.map((d) => ({
+          despesas: despesas.map((d: any) => ({
             description: d.description,
             amount:      Number(d.amount),
             paidByMe:    d.paid_by === user.id,
+            payerName:   d.users?.name ?? '?',
+            payerAvatar: d.users?.avatar_url ?? null,
           })),
         });
       }
@@ -84,15 +110,16 @@ export default function TelaSaldo() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.titulo}>Extrato</Text>
+      <View style={styles.tituloRow}>
+        <MaterialCommunityIcons name="cash-minus" size={30} color="#4F46E5" />
+        <Text style={styles.titulo}>Extrato</Text>
+      </View>
 
       {extrato.length === 0 ? (
         <View style={styles.emptyState}>
-          <Text style={{ fontSize: 64, marginBottom: 16 }}>💸</Text>
+          <MaterialCommunityIcons name="cash-minus" size={64} color="#C7D2FE" />
           <Text style={styles.emptyTitulo}>Nenhum extrato ainda</Text>
-          <Text style={styles.emptySubtitulo}>
-            Participe de um grupo!
-          </Text>
+          <Text style={styles.emptySubtitulo}>Participe de um grupo!</Text>
         </View>
       ) : (
         <FlatList
@@ -116,9 +143,10 @@ export default function TelaSaldo() {
               </Text>
               {item.despesas.map((d, i) => (
                 <View key={i} style={styles.itemGasto}>
-                  <Text style={styles.descGasto} numberOfLines={1}>
-                    {d.paidByMe ? '✅ ' : '   '}{d.description}
-                  </Text>
+                  <View style={styles.itemGastoLeft}>
+                    <AvatarPagador avatarUrl={d.payerAvatar} paidByMe={d.paidByMe} />
+                    <Text style={styles.descGasto} numberOfLines={1}>{d.description}</Text>
+                  </View>
                   <Text style={styles.valorGasto}>R$ {d.amount.toFixed(2)}</Text>
                 </View>
               ))}
@@ -145,11 +173,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F5F5',
   },
 
+  tituloRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 20,
+  },
+
   titulo: {
     fontSize: 28,
     fontWeight: 'bold',
     color: '#222',
-    marginBottom: 20,
   },
 
   card: {
@@ -190,6 +224,7 @@ const styles = StyleSheet.create({
   itemGasto: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
     backgroundColor: '#F8F8F8',
     borderRadius: 10,
     paddingVertical: 8,
@@ -197,11 +232,38 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
 
+  itemGastoLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    paddingRight: 10,
+    gap: 8,
+  },
+
+  avatarPagador: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    flexShrink: 0,
+  },
+
+  avatarPagadorPlaceholder: {
+    width: 22,
+    height: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0,
+  },
+
+  avatarEspacador: {
+    width: 22,
+    flexShrink: 0,
+  },
+
   descGasto: {
     flex: 1,
     fontSize: 14,
     color: '#444',
-    paddingRight: 10,
   },
 
   valorGasto: {
@@ -223,6 +285,7 @@ const styles = StyleSheet.create({
     color: '#222',
     marginBottom: 10,
     textAlign: 'center',
+    marginTop: 16,
   },
 
   emptySubtitulo: {
